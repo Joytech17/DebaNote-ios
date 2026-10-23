@@ -1,0 +1,8 @@
+{
+  "appId": "com.samson.debanote",
+  "appName": "DebaNote",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never"
+  }
+}
