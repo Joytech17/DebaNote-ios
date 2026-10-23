@@ -1,0 +1,42 @@
+name: Build iOS (unsigned IPA)
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Select Xcode 26
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XC" ]; then echo "Xcode 26 not found on this runner:"; ls /Applications | grep -i xcode; exit 1; fi
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+      - run: npm install
+      - run: |
+          mkdir -p www
+          cp index.html www/index.html
+      - run: npx cap add ios
+      - name: Icon and launch screen
+        run: |
+          ICON=ios/App/App/Assets.xcassets/AppIcon.appiconset
+          rm -rf "$ICON"
+          mkdir -p "$ICON"
+          cp icon-1024.png "$ICON/icon-1024.png"
+          cp icon-contents.json "$ICON/Contents.json"
+          find ios/App/App/Assets.xcassets/Splash.imageset -name '*.png' -exec cp splash-green.png {} \;
+      - run: npx cap sync ios
+      - name: Build
+        run: |
+          if [ -d ios/App/App.xcworkspace ]; then TARGET="-workspace ios/App/App.xcworkspace"; else TARGET="-project ios/App/App.xcodeproj"; fi
+          xcodebuild $TARGET -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" clean build
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qr DebaNote-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: debanote-ios-unsigned
+          path: DebaNote-unsigned.ipa
